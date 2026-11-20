@@ -254,3 +254,35 @@ body.g-lobby-page .g-top .g-stats-btn { display: none; }
   .g-tools { top: var(--s3); right: var(--s3); }
   .g-top .topbar-title { font-size: 18px; }
 }
+
+/* ---------- a weekly game's practice controls (weekly.js): a button at the left under the top bar, and a sheet under
+   the board on a phone or at the left on a wide screen ---------- */
+.g-wk-btn {
+  position: absolute; z-index: 9; left: calc(var(--s2) + env(safe-area-inset-left)); top: calc(env(safe-area-inset-top) + 104px);
+  min-height: var(--tap); padding: 0 var(--s3); border-radius: 999px; border: 1px solid var(--line-2);
+  background: rgba(14, 17, 24, 0.9); color: var(--text); font: 600 15px/1 var(--font); cursor: pointer; touch-action: manipulation;
+}
+.g-wk-btn[aria-expanded="true"] { border-color: var(--teal); }
+.g-wk {
+  position: absolute; z-index: 10; display: flex; flex-direction: column; overflow: hidden;
+  left: 0; right: 0; bottom: 0; max-height: 60%;
+  background: rgba(14, 17, 24, 0.97); color: var(--text); font: 15px/1.4 var(--font);
+  border-top: 1px solid var(--line); border-radius: 16px 16px 0 0; box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.45);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.g-wk[hidden] { display: none; }
+@media (min-width: 768px) {
+  .g-wk { left: var(--s2); right: auto; bottom: auto; top: calc(env(safe-area-inset-top) + 156px); width: 360px; max-height: calc(100% - 180px); border: 1px solid var(--line); border-radius: 16px; }
+}
+.g-wk-head { display: flex; align-items: center; gap: var(--s2); padding: var(--s1) var(--s1) var(--s1) var(--s3); border-bottom: 1px solid var(--line); }
+.g-wk-title { font-weight: 700; }
+.g-wk-score { flex: 1 1 auto; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+.g-wk-body { overflow-y: auto; padding: var(--s3); display: flex; flex-direction: column; gap: var(--s3); overscroll-behavior: contain; }
+.g-wk-body p { margin: 0; }
+.g-wk-name {
+  flex: 1 1 140px; min-width: 0; min-height: var(--tap); padding: 0 var(--s2); border-radius: 10px; border: 1px solid var(--line-2);
+  background: var(--surface-2); color: var(--text); font: inherit;
+}
+.g-wk-saves { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s2); }
+.g-wk-save { display: flex; align-items: center; gap: var(--s2); }
+.g-wk-save .g-an-btn { flex: 0 0 auto; }

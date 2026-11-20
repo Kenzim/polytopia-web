@@ -1136,6 +1136,7 @@ async function refresh({ initial = false } = {}) {
       if (initial || turnBegins || stale) openPendingReward();
       if (isOver()) maybeOver();
     } while (S.again);
+    if (weeklyUi) weeklyUi.sync();
   } catch (e) {
     if (!initial) sayError(e);
     else throw e;
@@ -1145,6 +1146,19 @@ async function refresh({ initial = false } = {}) {
 }
 
 function deselectIfStale() { if (S.sel) deselect(); }
+
+// a weekly game's practice controls (weekly.js): after the game goes back, the log seen so far no longer holds, so the
+// screen reads it again from the start
+let weeklyUi = null;
+async function weeklyPanel() {
+  if (S.game.kind !== "weekly" || !urls.weekly || watching()) return;
+  const { createWeekly } = await import(urls.weekly);
+  weeklyUi = createWeekly({
+    api, toast, confirm, h, root, gameId,
+    version: () => S.version,
+    reset: async () => { if (S.sel) deselect(); S.lastSeq = 0; await refresh({ initial: true }); },
+  });
+}
 
 // a watcher's selection (tile info, a unit's stats) stays open while the bots play on
 function keepSelection() {
@@ -1469,6 +1483,7 @@ async function boot() {
   if (S.game.status === "lobby") { await showLobby(); document.body.dataset.ready = "1"; return; }
   await setupScreen();
   await livePanel();
+  await weeklyPanel();
 
   S.recap = false;
   try { S.lastSeq = Number(localStorage.getItem(seqKey) || 0); S.recap = S.lastSeq > 0; } catch (e) { /* private mode */ }
