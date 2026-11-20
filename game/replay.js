@@ -272,9 +272,10 @@ export function createReplay(o) {
     return { text: data.check.final, ok: (!!data.check.scores_match || data.check.state === "abandoned") && !data.check.divergence };
   }
   function segments() {
+    const shown = (S.view && S.view.view && S.view.view.position && S.view.view.position.players) || []; // these carry each player's colour
     return data.turns.map((x) => {
-      const p = playerOf(x.player);
-      return { from: x.from / total, to: x.to / total, colour: p ? M.tribeColour(p.tribe) : "#888" };
+      const p = shown.find((q) => q.id === x.player) || playerOf(x.player);
+      return { from: x.from / total, to: x.to / total, colour: p ? M.playerColour(p) : "#888" };
     });
   }
   const glyphs = () => [

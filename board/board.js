@@ -70,6 +70,32 @@ function image(url) {
 }
 
 const tintCache = new Map(); // "url|r,g,b" -> a canvas: a white sprite in one colour
+const recolourCache = new Map(); // "url|#rrggbb" -> {state, img, url}: a unit's picture in another colour (recolour)
+
+const hexColour = (n) => `#${(n & 0xffffff).toString(16).padStart(6, "0")}`;
+const rgbOf = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+
+// A picture whose tinted parts were drawn in the colour `from` ([r, g, b]), drawn again in `to` (a canvas). `range` is
+// what those parts add to each channel going from a black tint to a white one (opaque, the picture's size). The
+// picture is affine in the tint per channel, so each channel of a pixel is its own plus range x (to - from) / 255.
+export function recolour(base, range, from, to) {
+  const w = base.naturalWidth || base.width, h = base.naturalHeight || base.height;
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  const g = c.getContext("2d", { willReadFrequently: true });
+  g.drawImage(range, 0, 0, w, h);
+  const r = g.getImageData(0, 0, w, h).data;
+  g.clearRect(0, 0, w, h);
+  g.drawImage(base, 0, 0);
+  const d = g.getImageData(0, 0, w, h), px = d.data;
+  const k = [0, 1, 2].map((i) => (to[i] - from[i]) / 255);
+  for (let i = 0; i < px.length; i += 4) {
+    if (!px[i + 3]) continue;
+    px[i] += r[i] * k[0]; px[i + 1] += r[i + 1] * k[1]; px[i + 2] += r[i + 2] * k[2]; // clamped and rounded by the array
+  }
+  g.putImageData(d, 0, 0);
+  return c;
+}
 
 // the box of an image's solid pixels, [x0, y0, x1, y1] in a w by h sprite (the whole sprite when it cannot be read)
 const boxCache = new WeakMap();
@@ -309,7 +335,18 @@ export function createBoard(canvas, opts = {}) {
     return p ? p.tribe : null;
   };
   const tribeIdx = (owner) => tribeInfo(playerTribe(owner))?.idx ?? 1;
-  const tribeColour = (owner) => tribeInfo(playerTribe(owner))?.colour || "#999999";
+  // A player's colour: its own (`colour`, 0xRRGGBB) when the position gives one, else its tribe's. Several players may
+  // play one tribe; the later ones have another colour.
+  const ownerColour = (owner) => {
+    const p = pos.players.find((q) => q.id === owner);
+    if (p && typeof p.colour === "number") return hexColour(p.colour);
+    return tribeInfo(p ? p.tribe : null)?.colour || "#999999";
+  };
+  // the tribe whose colour a player has: its own, or the one whose colour it was given
+  const colourTribeIdx = (owner) => {
+    const c = ownerColour(owner).toLowerCase();
+    return (meta.tribes || []).find((t) => String(t.colour).toLowerCase() === c)?.idx ?? tribeIdx(owner);
+  };
   const unitInfo = (type) => (meta.engine?.units || []).find((u) => u.idx === type);
   const unitName = (type) => unitInfo(type)?.id || `unit ${type}`;
   const hasAbility = (type, a) => !!unitInfo(type)?.abilities?.includes(a);
@@ -332,10 +369,34 @@ export function createBoard(canvas, opts = {}) {
 
   // ---------- the extracted game art (optional): layers anchored on the tile's top-face centre ----------
   const artEntry = (key) => art && art.manifest && art.manifest.assets ? art.manifest.assets[key] : null;
+  const artUrl = (file) => `${art.base || "/art/"}${file}${art.version ? `?v=${encodeURIComponent(art.version)}` : ""}`;
   function artImage(a) {
     if (a.picture) return a.picture; // made here, not loaded (a built city)
-    const base = art.base || "/art/";
-    return image(`${base}${a.file}${art.version ? `?v=${encodeURIComponent(art.version)}` : ""}`);
+    if (a.recolour) return recoloured(a);
+    return image(artUrl(a.file));
+  }
+  // A picture the art has baked a tribe's colour into (`tint`), in a player's other colour (`inColour`). Made once the
+  // picture and its tint range have loaded; the picture as it is when the range cannot be had.
+  function recoloured(a) {
+    const base = artImage(a.of), range = image(artUrl(a.of.tint.range));
+    if (base.state !== "ok" || range.state === "failed") return base;
+    if (range.state !== "ok") return range;
+    const key = `${base.url}|${a.recolour}`;
+    let e = recolourCache.get(key);
+    if (!e) recolourCache.set(key, (e = { state: "ok", img: recolour(base.img, range.img, rgbOf(a.of.tint.colour), rgbOf(a.recolour)), url: key }));
+    return e;
+  }
+  // `a` in its owner's colour: itself, unless the art baked another colour into it (a unit of a player who plays a
+  // tribe that an earlier player has too)
+  const colourParts = new Map(); // "file|#rrggbb" -> the entry drawn in that colour
+  function inColour(a, owner) {
+    if (!a || !a.tint) return a;
+    const colour = ownerColour(owner);
+    if (colour.toLowerCase() === String(a.tint.colour).toLowerCase()) return a;
+    const k = `${a.file}|${colour}`;
+    let p = colourParts.get(k);
+    if (!p || p.of !== a) colourParts.set(k, (p = { ...a, of: a, recolour: colour }));
+    return p;
   }
   const tribeName = (idx) => tribeInfo(idx)?.name || null;
   const ownerTribeName = (owner) => tribeInfo(playerTribe(owner))?.name || null;
@@ -402,7 +463,7 @@ export function createBoard(canvas, opts = {}) {
     const capitalTribe = t.capitalOf ? ownerTribeName(t.capitalOf) || tribe : null;
     const pale = fogFor != null && fogFor !== t.owner; // nobody's city is another's when the board is shown whole
     const sig = [tribe, level, parks, rewards.includes(REWARD_WORKSHOP), rewards.includes(REWARD_WALL), capitalTribe, pale,
-      embassies.map((p) => `${p}:${ownerTribeName(p)}:${tribeColour(p)}`).join("/")].join("|");
+      embassies.map((p) => `${p}:${ownerTribeName(p)}:${ownerColour(p)}`).join("/")].join("|");
     const k = `${t.x},${t.y}`;
     const had = cityBuilt.get(k);
     if (had && had.sig === sig && had.art === art) return had.layers;
@@ -434,7 +495,7 @@ export function createBoard(canvas, opts = {}) {
     for (const p of embassies) {
       const plot = next(plots.length - 1);
       const look = ownerTribeName(p);
-      if (look) plot.houses.push([artEntry(`city/${look}/embassy`) ? `city/${look}/embassy` : `city/${tribe}/embassy`, tribeColour(p)]);
+      if (look) plot.houses.push([artEntry(`city/${look}/embassy`) ? `city/${look}/embassy` : `city/${tribe}/embassy`, ownerColour(p)]);
     }
     if (capitalTribe) front.houses.push([artEntry(`city/${capitalTribe}/capital`) ? `city/${capitalTribe}/capital` : `city/${tribe}/capital`, null]);
 
@@ -568,7 +629,7 @@ export function createBoard(canvas, opts = {}) {
     const out = [towerPart("shadow", base)];
     for (let i = 0; i < n; i++) {
       out.push(towerPart("section", base + i * step));
-      out.push(towerPart("gem", base + i * step, found[i] != null ? tribeColour(found[i]) : "#ffffff"));
+      out.push(towerPart("gem", base + i * step, found[i] != null ? ownerColour(found[i]) : "#ffffff"));
     }
     out.push(towerPart("roof", base + (n - (section.floors || 2)) * step));
     return out.filter(Boolean);
@@ -623,9 +684,9 @@ export function createBoard(canvas, opts = {}) {
     const info = unitInfo(u.type);
     const tribe = ownerTribeName(u.owner);
     if (!info || !tribe) return null;
-    const own = artEntry(`unit/${tribe}/${info.id}`);
+    const own = inColour(artEntry(`unit/${tribe}/${info.id}`), u.owner);
     if (!own) return null;
-    const boat = isWater(tileAtXY(u.x, u.y)) && info.abilities?.includes("land") ? artEntry(`unit/${tribe}/boat`) : null;
+    const boat = isWater(tileAtXY(u.x, u.y)) && info.abilities?.includes("land") ? inColour(artEntry(`unit/${tribe}/boat`), u.owner) : null;
     // the outlines the game shows round a unit that can act (absent from asset sets extracted before they were added)
     const outline = artEntry(`unitglow/${tribe}/${info.id}`);
     const boatOutline = boat ? artEntry(`unitglow/${tribe}/boat`) : null;
@@ -1121,7 +1182,7 @@ export function createBoard(canvas, opts = {}) {
       const pts = (path || []).map(asXY).filter(Boolean);
       if (pts.length < 2) return Promise.resolve();
       const tribe = ownerTribeName(owner);
-      const a = tribe ? artEntry(`unit/${tribe}/${unitId}`) : null;
+      const a = tribe ? inColour(artEntry(`unit/${tribe}/${unitId}`), owner) : null;
       let flip = false, reached = 0;
       return addFx(o.ms ?? 1200, {
         name: "figure",
@@ -1590,7 +1651,7 @@ export function createBoard(canvas, opts = {}) {
     ctx.strokeStyle = "#f4f4f4";
     ctx.lineWidth = Math.max(1.5, view.sx * 0.05);
     ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px, py - h * 0.55); ctx.stroke();
-    ctx.fillStyle = tribeColour(owner);
+    ctx.fillStyle = ownerColour(owner);
     ctx.beginPath(); ctx.moveTo(px, py - h * 0.55); ctx.lineTo(px + h * 0.42, py - h * 0.4); ctx.lineTo(px, py - h * 0.25); ctx.closePath(); ctx.fill();
     ctx.lineWidth = 1; ctx.strokeStyle = "rgba(0,0,0,0.6)"; ctx.stroke();
   }
@@ -1641,7 +1702,7 @@ export function createBoard(canvas, opts = {}) {
       const r = Math.max(5, view.sx * 0.32);
       ctx.beginPath();
       ctx.arc(cx, cy + sy() * 0.6, r, 0, Math.PI * 2);
-      ctx.fillStyle = tribeColour(u.owner);
+      ctx.fillStyle = ownerColour(u.owner);
       ctx.fill();
       ctx.strokeStyle = "#111";
       ctx.lineWidth = 1;
@@ -1698,7 +1759,7 @@ export function createBoard(canvas, opts = {}) {
     textDrawer.draw(ctx, text, hx - m.w / 2, hy + (m.box.t + m.box.b) / 2, { font: "josefin-italic", size, colour: health < 50 ? "#ff0000" : "#fff", dpr });
     if (!box) box = [hx - m.w / 2, hy - size / 2, m.w, size];
     stats.badgeBoxes.push({ x: u.x, y: u.y, rect: box, look: "game", shield, text });
-    const [tx, ty] = at(BADGE.type), own = dimmed(tribeColour(u.owner), 1);
+    const [tx, ty] = at(BADGE.type), own = dimmed(ownerColour(u.owner), 1);
     const fill = own.map((v) => Math.round(v * 0.48 + 50 * 0.52));
     worldSprite(a.circle, imgs.circle, tx, ty, 0.7, 0.7, fill);
     const ring = u.dim === false && u.moved === false && u.attacked === false; // game.js sets dim only on our units in our turn
@@ -1729,7 +1790,7 @@ export function createBoard(canvas, opts = {}) {
     if (view.sx < 14) {
       ctx.beginPath();
       ctx.arc(cx, cy + sy() * 0.1, Math.max(2.5, view.sx * 0.22), 0, Math.PI * 2);
-      ctx.fillStyle = tribeColour(u.owner);
+      ctx.fillStyle = ownerColour(u.owner);
       ctx.fill();
       ctx.strokeStyle = "rgba(0,0,0,0.6)";
       ctx.lineWidth = 1;
@@ -1752,11 +1813,11 @@ export function createBoard(canvas, opts = {}) {
     const ox = cx + view.sx * 0.42;
     ctx.beginPath();
     ctx.arc(ox, by, fs * 0.55, 0, Math.PI * 2);
-    ctx.fillStyle = tribeColour(u.owner);
+    ctx.fillStyle = ownerColour(u.owner);
     ctx.fill();
     const icon = badgeIcon(u);
     if (icon) drawBadgeIcon(icon.a, ox, by, fs * 0.9);
-    stats.badges.push({ id: u.id, x: ox, y: by, r: fs * 0.55, colour: tribeColour(u.owner), icon: icon ? icon.name : null });
+    stats.badges.push({ id: u.id, x: ox, y: by, r: fs * 0.55, colour: ownerColour(u.owner), icon: icon ? icon.name : null });
     if (u.promotion > 0) { // just outside the disc's top right, outlined, so the icon stays clear
       ctx.font = `700 ${fs * 0.6}px system-ui, sans-serif`;
       ctx.lineWidth = 2; ctx.strokeStyle = "rgba(10,12,18,0.9)";
@@ -1774,7 +1835,7 @@ export function createBoard(canvas, opts = {}) {
     if (!id) return null;
     const icon = artEntry(`icon/${id}_icon`);
     if (icon) return { name: `icon/${id}_icon`, a: icon };
-    const tribe = ownerTribeName(u.owner), own = tribe && artEntry(`unit/${tribe}/${id}`);
+    const tribe = ownerTribeName(u.owner), own = tribe && inColour(artEntry(`unit/${tribe}/${id}`), u.owner);
     return own ? { name: `unit/${tribe}/${id}`, a: own, sprite: true } : null;
   }
 
@@ -1907,7 +1968,7 @@ export function createBoard(canvas, opts = {}) {
     if (!list || fogged(t)) return;
     const k = artScale(), [cx, cy] = centre(x, y);
     const dims = art.manifest.geometry.border_dim || {};
-    const dim = dims[String(tribeIdx(t.owner))] ?? dims.default ?? 0.62;
+    const dim = dims[String(colourTribeIdx(t.owner))] ?? dims.default ?? 0.62;
     for (const b of list) {
       if (!edges.includes(b.edge)) continue;
       const [dx, dy] = BORDER_NEIGHBOUR[b.edge];
@@ -1917,7 +1978,7 @@ export function createBoard(canvas, opts = {}) {
       if (e.state !== "ok") continue;
       const [ux, uy] = BORDER_SIDE[b.edge];
       const rise = (a.h * k - sy()) / 2; // half a dash: the sprite is a side's height plus one dash high
-      ctx.drawImage(borderTint(e, tribeColour(t.owner), dim), cx + (ux * view.sx) / 2 - a.anchor[0] * k, cy + (uy * sy()) / 2 - a.anchor[1] * k - rise, a.w * k, a.h * k);
+      ctx.drawImage(borderTint(e, ownerColour(t.owner), dim), cx + (ux * view.sx) / 2 - a.anchor[0] * k, cy + (uy * sy()) / 2 - a.anchor[1] * k - rise, a.w * k, a.h * k);
     }
   }
 
@@ -1935,7 +1996,7 @@ export function createBoard(canvas, opts = {}) {
         if (cx < -a || cx > cssW + a || cy < -2 * b || cy > cssH + 2 * b) continue;
         const oy = sy();
         const pts = [[cx, cy + oy - b], [cx + a, cy + oy], [cx, cy + oy + b], [cx - a, cy + oy]];
-        ctx.strokeStyle = tribeColour(t.owner);
+        ctx.strokeStyle = ownerColour(t.owner);
         for (const [p, q, dx, dy] of edges) {
           const nb = tileAtXY(x + dx, y + dy);
           if (nb && nb.owner === t.owner) continue;
@@ -1978,7 +2039,7 @@ export function createBoard(canvas, opts = {}) {
     const mine = !!t.owner && (fogFor == null || fogFor === t.owner); // every owned city when there is no fog
     const showPips = mine && t.xp != null;
     const units = mine && t.supported != null ? `${t.supported}/${slots}` : "";
-    const rgb = dimmed(tribeColour(t.owner), 0.55);
+    const rgb = dimmed(ownerColour(t.owner), 0.55);
 
     const name = t.name || "city";
     const crown = t.capital ? artEntry("icon/crown") : null;
@@ -2091,7 +2152,7 @@ export function createBoard(canvas, opts = {}) {
       W += (a.star.w / a.star.ppu) * 0.2 + (wm.box.r - wm.box.l) / w + 0.012 + 0.015;
     } else W += 0.03;
     const left = ox - (W / 2) * w, bw = W * 26.4 * CITY.square * w, bh = 4.8 * CITY.square * w;
-    const rgb = dimmed(tribeColour(t.owner), 1);
+    const rgb = dimmed(ownerColour(t.owner), 1);
     ctx.fillStyle = `rgba(${rgb},0.5)`;
     ctx.fillRect(ox - bw / 2, ny - bh / 2, bw, bh);
     if (iconX != null) {
@@ -2148,7 +2209,7 @@ export function createBoard(canvas, opts = {}) {
       const label = (t.capital ? "★ " : "") + (t.name || "city");
       const tw = ctx.measureText(label).width + fs * 0.8;
       const ly = cy + sy() * 0.9;
-      ctx.fillStyle = t.owner ? tribeColour(t.owner) : "rgba(20,20,20,0.75)";
+      ctx.fillStyle = t.owner ? ownerColour(t.owner) : "rgba(20,20,20,0.75)";
       ctx.globalAlpha = 0.85;
       ctx.fillRect(cx - tw / 2, ly - fs * 0.7, tw, fs * 1.4);
       ctx.globalAlpha = 1;

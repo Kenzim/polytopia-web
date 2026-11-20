@@ -3,6 +3,8 @@
 //
 // Sizes are in the retail canvas's units ("u", about one CSS pixel on a phone) times the layout scale `k`.
 
+import { recolour } from "board/board.js";
+
 // the retail colours (UIRoundButton, BasicPopup, NotificationBadge in the HudScreen prefab)
 export const COLOURS = {
   buttonBg: "rgba(0,0,0,0.8)", // UIRoundButton deactiveColor
@@ -45,6 +47,32 @@ export function createKit(manifest, base = "/art/") {
   }
   const first = (keys) => [].concat(keys).find((k) => k && assets[k]) || null;
 
+  // A picture the art has baked a tribe's colour into (`tint`: a unit's), in `colour` ("#rrggbb"): the picture itself
+  // when that is the baked colour, null while the tint range loads
+  const ranges = new Map(); // file -> {img, state}
+  const recoloured = new Map(); // "key|#rrggbb" -> a canvas
+  function inColour(key, im, colour) {
+    const t = im.e.tint;
+    if (!colour || !t || colour.toLowerCase() === String(t.colour).toLowerCase()) return im.img;
+    let r = ranges.get(t.range);
+    if (!r) {
+      const img = new Image();
+      ranges.set(t.range, (r = { img, state: "loading" }));
+      img.onload = () => { r.state = "ok"; for (const fn of listeners) fn(); };
+      img.onerror = () => { r.state = "error"; for (const fn of listeners) fn(); };
+      img.src = `${base}${t.range}${version}`;
+    }
+    if (r.state === "error") return im.img;
+    if (r.state !== "ok") return null;
+    const k = `${key}|${colour}`;
+    let c = recoloured.get(k);
+    if (!c) {
+      const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+      recoloured.set(k, (c = recolour(im.img, r.img, rgb(t.colour), rgb(colour))));
+    }
+    return c;
+  }
+
   // the box of an image's solid pixels as fractions of it, [x0, y0, x1, y1] (alpha above 128: past a unit's soft shadow);
   // the whole image when it cannot be read
   const boxes = new WeakMap();
@@ -76,13 +104,16 @@ export function createKit(manifest, base = "/art/") {
   //
   // The board's art (a building, a unit, a resource: an entry without a rect) is anchored on its tile's centre, which
   // says nothing of where the picture is. With `o.centred` its solid pixels are fitted into the box and centred there.
+  // With `o.colour` a unit's picture is drawn in that player's colour.
   function icon(ctx, keys, cx, cy, size, o = {}) {
     const key = first(keys);
     const im = key ? image(key) : null;
     if (!im || im.state !== "ok") return false;
-    const { e, img } = im;
+    const { e } = im;
+    const img = inColour(key, im, o.colour);
+    if (!img) return false;
     if (o.centred && !e.rect) {
-      const [x0, y0, x1, y1] = solidBox(img);
+      const [x0, y0, x1, y1] = solidBox(im.img);
       const s = size / Math.max((x1 - x0) * e.w, (y1 - y0) * e.h);
       const a = ctx.globalAlpha;
       if (o.alpha != null) ctx.globalAlpha = a * o.alpha;

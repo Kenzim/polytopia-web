@@ -60,6 +60,9 @@ export function index(meta) {
     tech: (i) => techs.get(i), techName: (i) => pretty(techs.get(i)?.id ?? `tech ${i}`), techs, techById, parents,
     tribe: (i) => tribes.get(i), tribeName: (i) => pretty(tribes.get(i)?.name ?? "Nature"),
     tribeColour: (i) => tribes.get(i)?.colour || "#999999",
+    // a player's colour (a position's player record): its own `colour` (0xRRGGBB) when it has one, else its tribe's.
+    // Several players may play one tribe; the later ones have another colour.
+    playerColour: (p) => (p && typeof p.colour === "number" ? `#${(p.colour & 0xffffff).toString(16).padStart(6, "0")}` : tribes.get(p && p.tribe)?.colour || "#999999"),
     terrainName: (i) => pretty(terrain.get(i) || "unknown"), resourceName: (i) => pretty(resource.get(i) || ""),
     isWater: (i) => i === 1 || i === 2,
   };

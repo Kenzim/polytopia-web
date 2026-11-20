@@ -63,7 +63,7 @@ export function unitPanel(A, u) {
 function seenOne(A, id) {
   const pl = (A.S.view.view.position.players || []).find((p) => p.id === id);
   return h("span", { class: "g-seen-one" },
-    h("span", { class: "g-dot", style: `background:${A.M.tribeColour(pl?.tribe)}` }),
+    h("span", { class: "g-dot", style: `background:${A.M.playerColour(pl)}` }),
     `${A.M.tribeName(pl?.tribe)}${id === A.S.myId ? " (you)" : ""}`);
 }
 
@@ -240,7 +240,7 @@ export function scorePanel(A, sheet) {
     return h("li", { class: "g-score-row" },
       h("div", { class: "list-item" },
         h("span", { class: "g-rank" }, String(i + 1)),
-        h("span", { class: "g-dot", style: `background:${M.tribeColour(pl?.tribe)}` }),
+        h("span", { class: "g-dot", style: `background:${M.playerColour(pl)}` }),
         h("span", { class: "title" }, A.ownerName(id), id === A.S.myId ? " (you)" : "", h("span", { class: "sub" }, `${M.tribeName(pl?.tribe)}${pl && pl.alive === false ? " · out" : ""}`)),
         h("span", { class: "end" }, num(s))),
       dip.length ? h("div", { class: "g-actions end g-dip" }, dip.map((c) => btn(c.kind === "PeaceTreaty" ? "Offer peace" : c.kind === "BreakPeace" ? "Break peace" : c.kind === "EstablishEmbassy" ? "Embassy" : verb(c.kind), "", () => { sheet.close(); A.act(c); }))) : null);
@@ -350,7 +350,7 @@ export function meetPanel(A, ids, sheet, stars = 0) {
   const names = met.map((p) => M.tribeName(p.tribe));
   const body = h("div", { class: "stack" },
     h("ul", { class: "list" }, met.map((p) => h("li", { class: "list-item" },
-      h("span", { class: "g-dot", style: `background:${M.tribeColour(p.tribe)}` }),
+      h("span", { class: "g-dot", style: `background:${M.playerColour(p)}` }),
       h("span", { class: "title" }, M.tribeName(p.tribe)),
       A.botName(p.id) ? h("span", { class: "end g-meet-leader" }, `Their leader ${A.botName(p.id)}`) : null))),
     stars > 0 ? h("p", { class: "g-meet-stars", "data-stars": String(stars) }, `A one time trade boost of ${stars} stars!`) : null,

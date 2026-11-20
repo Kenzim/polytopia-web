@@ -279,7 +279,7 @@ export function createScreens(env) {
         const headD = g.u(32);
         let tx = left + g.u(3);
         if (r.met) {
-          g.circle(tx + headD / 2, yy + rh / 2, headD / 2, M().tribeColour(p.tribe));
+          g.circle(tx + headD / 2, yy + rh / 2, headD / 2, M().playerColour(p));
           g.icon([`head/${tribe ? tribe.name : ""}`, "head/head"], tx + headD / 2, yy + rh / 2, headD * 0.8);
           tx += headD + g.u(8);
         }
@@ -337,7 +337,7 @@ export function createScreens(env) {
   const headOf = (p) => { const t = M().tribe(p && p.tribe); return [`head/${t ? t.name : ""}`, "head/head"]; };
   // the retail meeting popup has a picture of the tribe at the top; the web has the tribe's head on its colour
   function tribeBanner(p) {
-    const colour = M().tribeColour(p && p.tribe);
+    const colour = M().playerColour(p);
     return {
       kind: "image", h: 170,
       draw(g, x, y, w, h) {
@@ -401,7 +401,7 @@ export function createScreens(env) {
       return [
         tribeBanner(p),
         { kind: "gap", h: 16 },
-        { kind: "title", text: fmt(tr("world.meet.tribe", "You meet {0}"), "").trim(), chip: { text: M().tribeName(p.tribe), colour: M().tribeColour(p.tribe), head: headOf(p) } },
+        { kind: "title", text: fmt(tr("world.meet.tribe", "You meet {0}"), "").trim(), chip: { text: M().tribeName(p.tribe), colour: M().playerColour(p), head: headOf(p) } },
         { kind: "text", text: boost ? `${lead}\n${boost}` : lead },
         ok,
       ];
@@ -489,7 +489,7 @@ export function createScreens(env) {
     return popup("over", [
       { kind: "title", text: title, size: 36 },
       { kind: "text", text: line },
-      { kind: "list", items: scores.map(([id, s]) => { const pl = players.find((p) => p.id === id); return { name: `${A.ownerName(id)}${id === A.S.myId ? " (you)" : ""}`, right: num(s), colour: M().tribeColour(pl && pl.tribe), me: id === A.S.myId }; }) },
+      { kind: "list", items: scores.map(([id, s]) => { const pl = players.find((p) => p.id === id); return { name: `${A.ownerName(id)}${id === A.S.myId ? " (you)" : ""}`, right: num(s), colour: M().playerColour(pl), me: id === A.S.myId }; }) },
       { kind: "pills", items: [
         { id: "games", label: "Games", fill: g0().COLOURS.off, onTap: () => { location.href = "/games"; } },
         { id: "review", label: "Review", onTap: () => { location.href = `/games/${A.S.gameId}/review`; } },

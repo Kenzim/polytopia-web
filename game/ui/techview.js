@@ -49,7 +49,7 @@ export function createTechView(env) {
   })();
 
   function open({ onClose } = {}) {
-    const { tree, tribeName, st } = TT.techSetup(A, LAYOUT);
+    const { tree, tribeName, colour, st } = TT.techSetup(A, LAYOUT); // colour: the viewer's, for the unit pictures
     const engine = A.meta.engine || {};
     const unitById = new Map((engine.units || []).map((u) => [u.id, u]));
     const imprById = new Map((engine.improvements || []).map((i) => [i.id, i]));
@@ -114,7 +114,7 @@ export function createTechView(env) {
         g.circle(x, y, r + g.u(1), null, state === "expensive" ? "rgba(255,255,255,0.55)" : "#fff", g.u(3.2) * f);
       }
       const boxes = pictureBoxes(n.t, x, y, d);
-      for (const b of boxes) g.icon([b.key], b.x, b.y, b.size, { centred: true });
+      for (const b of boxes) g.icon([b.key], b.x, b.y, b.size, { centred: true, colour });
       if (!boxes.length) g.icon([`tech/${n.t.id}`], x, y, d * 0.39); // no list of what it unlocks: its one extracted icon
       g.text(techName(n.t), x, y + r * LABEL.dy, { size: big(LABEL.size), align: "center", baseline: "middle", maxWidth: (d * LABEL.width) / g.k, minSize: 7, shadow: { dy: 1, colour: "rgba(0,0,0,0.35)" } });
       if (state !== "done" && !o.noPrice) {
@@ -284,8 +284,8 @@ export function createTechView(env) {
             items.forEach((it, i) => {
               const h = g.u(hs[i]);
               g.circle(ix + g.u(20), yy + g.u(24), g.u(20), "rgba(255,255,255,0.1)");
-              if (it.fit) g.icon(it.icon, ix + g.u(20), yy + g.u(24), g.u(28), { centred: true }); // the board's art, inside the circle
-              else g.icon(it.icon, ix + g.u(20), yy + g.u(24), g.u(36));
+              if (it.fit) g.icon(it.icon, ix + g.u(20), yy + g.u(24), g.u(28), { centred: true, colour }); // the board's art, inside the circle
+              else g.icon(it.icon, ix + g.u(20), yy + g.u(24), g.u(36), { colour });
               g.text(it.name, ix + g.u(52), yy + g.u(16), { size: 19, bold: true, baseline: "middle", maxWidth: (inner - g.u(56)) / g.k, minSize: 11 });
               if (it.detail) g.para(it.detail, ix + g.u(52), yy + g.u(28), inner - g.u(56), { ...detailO, colour: "rgba(255,255,255,0.75)" });
               yy += h;

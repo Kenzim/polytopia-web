@@ -140,7 +140,8 @@ export function techSetup(A, layout = {}) {
     },
   };
   st.read();
-  return { tree, tribe, tribeName, rules, colour: M.tribeColour(view().me.tribe), st };
+  const me = ((view().position && view().position.players) || []).find((p) => p.id === view().me.id) || view().me;
+  return { tree, tribe, tribeName, rules, colour: M.playerColour(me), st };
 }
 
 // ---------- pan and zoom ----------
@@ -377,7 +378,7 @@ export function techScreen(A, { onClose } = {}) {
     let pic, detail = "";
     if (kind === "unit") {
       const u = unitById.get(id);
-      pic = ico.unit(id, tribeName, name);
+      pic = ico.unit(id, tribeName, name, "", colour);
       if (u) detail = statLine(u);
     } else if (kind === "building") {
       const i = imprById.get(id);

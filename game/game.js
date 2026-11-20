@@ -747,14 +747,14 @@ function updateWatchBar() {
   const pl = seat && (V().position.players || []).find((p) => p.id === seat.player_id);
   $("g-who").hidden = !pl;
   if (pl) {
-    $("g-who-dot").style.background = M.tribeColour(pl.tribe);
+    $("g-who-dot").style.background = M.playerColour(pl);
     $("g-who-name").textContent = M.tribeName(pl.tribe);
   }
   const turn = isLastTurn() ? "Last turn" : `T ${turnNumber()}${limit ? `/${limit}` : ""}`;
   $("g-turn").textContent = turn;
   $("g-title").textContent = S.game.name;
   $("g-stats").setAttribute("aria-label", `${isOver() ? "Game over" : `${pl ? `${M.tribeName(pl.tribe)} to move, ` : ""}${turn}`}. Show scores`);
-  if (hud) hud.update({ mode: "watch", who: pl ? { name: M.tribeName(pl.tribe), colour: M.tribeColour(pl.tribe) } : null, turn: turnNumber(), limit, lastTurn: isLastTurn() });
+  if (hud) hud.update({ mode: "watch", who: pl ? { name: M.tribeName(pl.tribe), colour: M.playerColour(pl) } : null, turn: turnNumber(), limit, lastTurn: isLastTurn() });
 }
 
 function waitingFor() {

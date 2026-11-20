@@ -86,7 +86,7 @@ export function createSelBar(env) {
     let drawn = false;
     if (b.drawIcon) drawn = b.drawIcon(ctx, d);
     // a building's, unit's or resource's picture is the board's art: centred on what is drawn, not on its tile's anchor
-    else if (b.icon) drawn = g.icon(b.icon, 0, b.iconDy ? u(b.iconDy) : 0, d * (b.iconScale || 0.62), { centred: true });
+    else if (b.icon) drawn = g.icon(b.icon, 0, b.iconDy ? u(b.iconDy) : 0, d * (b.iconScale || 0.62), { centred: true, colour: b.iconColour });
     if (!drawn) g.text(b.letter || String(b.label || "?").slice(0, 1), 0, 0, { size: 22, align: "center", baseline: "middle" });
     ctx.restore();
     return g.hit({ id: b.id, label: b.aria || b.label, x: cx - d / 2, y: cy - d / 2, w: d, h: d, round: true, slop: u(10), active: !!b.active, state: b.state || (b.short ? "short" : null), onTap: () => b.onTap && b.onTap(b) });

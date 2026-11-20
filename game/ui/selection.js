@@ -43,6 +43,7 @@ export function createSelection(env) {
     return ACTION_STRING[c.kind] ? tr(ACTION_STRING[c.kind], verb(c.kind)) : verb(c.kind);
   };
   const unitIcon = (id, tribe) => [tribe && `unit/${tribe}/${id}`, `icon/${id}_icon`].filter(Boolean);
+  const colourOf = (owner) => M().playerColour((V().position.players || []).find((p) => p.id === owner));
 
   // ---------- a unit ----------
   function unitDesc(u) {
@@ -72,7 +73,7 @@ export function createSelection(env) {
       const up = c.kind === "Upgrade" ? M().unit(c.upgrade_to) : null;
       return {
         id: `act:${c.kind}${n > 1 ? `:${n}` : ""}`, label: actionLabel(c), kind: c.kind,
-        icon: up ? unitIcon(up.id, tribe) : [ACTION_ICON[c.kind]].filter(Boolean), iconScale: up ? 0.8 : 0.62,
+        icon: up ? unitIcon(up.id, tribe) : [ACTION_ICON[c.kind]].filter(Boolean), iconScale: up ? 0.8 : 0.62, iconColour: up ? colourOf(u.owner) : null,
         cost: up ? up.cost : null, fill: c.kind === "Capture" ? "rgba(0,153,255,0.8)" : null,
         onTap: () => A.act(c),
       };
@@ -160,7 +161,7 @@ export function createSelection(env) {
       const icon = isTrain ? unitIcon(iid, tribe) : BUILD_ICON[iid] ? BUILD_ICON[iid](climate) : [`improvement/${iid}/${tribe}`, `improvement/${iid}`, `icon/${iid}_icon`];
       buttons.push({
         id, label: isTrain ? M().unitName(c.train) : M().imprName(c.improvement), kind: c.kind,
-        icon, iconScale: isTrain ? 0.8 : 0.72, cost: info ? info.cost : null, short: !!c.locked,
+        icon, iconScale: isTrain ? 0.8 : 0.72, iconColour: isTrain ? colourOf(A.S.myId) : null, cost: info ? info.cost : null, short: !!c.locked,
         active: !!picked && picked.id === id, state: c.locked ? "short" : null,
         aria: `${isTrain ? M().unitName(c.train) : M().imprName(c.improvement)}, ${info ? info.cost : "?"} stars${c.locked ? ", not enough stars" : ""}`,
         onTap: () => {
