@@ -1058,6 +1058,7 @@ function setFog(off) {
   closeInfo();
   if (S.sel?.kind === "tile" && !A.tile(S.sel.xy)?.terrain) deselect();
   else if (S.sel) showSelection();
+  if (weeklyUi) weeklyUi.syncFog();
 }
 
 async function resign() {
@@ -1164,6 +1165,7 @@ async function weeklyPanel() {
   weeklyUi = createWeekly({
     api, toast, confirm, h, root, gameId,
     version: () => S.version,
+    fog: { can: () => !!(S.game.assist && S.view && V().full_position), on: () => !!S.fogOff, set: setFog },
     reset: async () => { if (S.sel) deselect(); S.lastSeq = 0; await refresh({ initial: true }); },
   });
 }
@@ -1452,7 +1454,7 @@ async function setupScreen() {
     const text = T.createText(manifest, ART);
     text.ready.then(() => board.setText(text));
     const portrait = (ctx, p, cx, cy, size) => board.drawPortrait(ctx, p.xy, { unit: p.unit, cx, cy, size });
-    hud = HUD.createHud({ wrap: $("g-board-wrap"), kit: K, layersMod: LY, selbarMod: SB, portrait, anchorOf: (xy) => board.screenOf(xy), manifest, artBase: ART, text, fonts: T.FONTS, onAction: hudAction, onResize: syncSheets, play, reduced });
+    hud = HUD.createHud({ wrap: $("g-board-wrap"), kit: K, layersMod: LY, selbarMod: SB, portrait, anchorOf: (xy) => board.screenOf(xy), manifest, artBase: ART, text, fonts: T.FONTS, onAction: hudAction, onResize: syncSheets, onScreen: (on) => document.body.classList.toggle("g-screen", on), play, reduced });
     const fmt = (str, ...args) => String(str).replace(/\{(\d)\}/g, (m, i) => (args[i] ?? ""));
     const tr = (k, fallback) => String(strings[k] ?? fallback).trim();
     selB = SL.createSelection({

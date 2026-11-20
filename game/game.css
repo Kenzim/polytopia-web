@@ -256,7 +256,8 @@ body.g-lobby-page .g-top .g-stats-btn { display: none; }
 }
 
 /* ---------- a weekly game's practice controls (weekly.js): a button at the left under the top bar, and a sheet under
-   the board on a phone or at the left on a wide screen ---------- */
+   the board on a phone or at the left on a wide screen; neither shows over a full screen (settings, stats) ---------- */
+body.g-screen .g-wk-btn, body.g-screen .g-wk { display: none; }
 .g-wk-btn {
   position: absolute; z-index: 9; left: calc(var(--s2) + env(safe-area-inset-left)); top: calc(env(safe-area-inset-top) + 104px);
   min-height: var(--tap); padding: 0 var(--s3); border-radius: 999px; border: 1px solid var(--line-2);
@@ -283,6 +284,8 @@ body.g-lobby-page .g-top .g-stats-btn { display: none; }
   flex: 1 1 140px; min-width: 0; min-height: var(--tap); padding: 0 var(--s2); border-radius: 10px; border: 1px solid var(--line-2);
   background: var(--surface-2); color: var(--text); font: inherit;
 }
+.g-wk-fog { display: flex; align-items: center; gap: var(--s2); min-height: var(--tap); cursor: pointer; }
+.g-wk-fog input { width: 24px; height: 24px; accent-color: var(--accent); flex: 0 0 auto; }
 .g-wk-saves { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s2); }
 .g-wk-save { display: flex; align-items: center; gap: var(--s2); }
 .g-wk-save .g-an-btn { flex: 0 0 auto; }

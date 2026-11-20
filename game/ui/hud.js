@@ -30,7 +30,7 @@ export function retailScale(w, h, coarse) {
   return (factor * ppi) / 221;
 }
 
-export function createHud({ wrap, kit, layersMod, selbarMod, portrait = () => false, anchorOf = () => null, manifest, artBase = "/art/", text, fonts, onAction, onResize = () => {}, play = () => {}, reduced = () => false }) {
+export function createHud({ wrap, kit, layersMod, selbarMod, portrait = () => false, anchorOf = () => null, manifest, artBase = "/art/", text, fonts, onAction, onResize = () => {}, onScreen = () => {}, play = () => {}, reduced = () => false }) {
   const { COLOURS, ease, roundRect, createHits } = kit;
   const art = kit.createKit(manifest, artBase);
   const canvas = document.createElement("canvas");
@@ -513,6 +513,7 @@ export function createHud({ wrap, kit, layersMod, selbarMod, portrait = () => fa
 
   // ---------- the frame ----------
   let live = false;
+  let covered = false; // a full screen is open: `onScreen` hears of each change, for what the page lays over the canvas
   function draw() {
     frame = 0;
     if (destroyed) return;
@@ -524,7 +525,8 @@ export function createHud({ wrap, kit, layersMod, selbarMod, portrait = () => fa
     hits.clear();
     stats.texts = 0;
     // a full screen (settings, stats) hides the button bar and the tools, as retail's screens do; the top bar stays, dimmed
-    const screen = layers && layers.list.some((L) => L.kind === "screen");
+    const screen = !!layers && layers.list.some((L) => L.kind === "screen");
+    if (screen !== covered) { covered = screen; onScreen(screen); }
     if (state.visible) {
       gradients();
       if (state.top !== false) resourceBar(t); // false: the page's panel shows the turn and the player to move itself

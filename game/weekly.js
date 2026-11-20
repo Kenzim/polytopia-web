@@ -1,8 +1,9 @@
 // The weekly practice controls on the game screen of a weekly game: undo across turns, redo, restart, save points and
-// the current score. A small button over the board opens a sheet; it works in both the game and technical modes.
+// the current score, and the whole-map switch where the game allows it. A small button over the board opens a sheet; it
+// works in both the game and technical modes.
 //
 // o: {api, toast, confirm, h, root, gameId, version () -> the view's version, reset async () -> reload the screen
-// after the game went back}
+// after the game went back, fog (optional) {can () -> the fog may be lifted, on () -> it is, set (on)}}
 
 const num = (n) => Number(n).toLocaleString("en-GB");
 
@@ -70,7 +71,10 @@ export function createWeekly(o) {
       }),
       btn(`wk-delete-${s.id}`, "Delete", () => act(`saves/${s.id}`, {}, "delete"))));
     const nameInput = h("input", { id: "wk-name", class: "g-wk-name", type: "text", maxlength: "40", placeholder: "Save point name", "aria-label": "Save point name" });
-    body.replaceChildren(
+    const fog = o.fog && o.fog.can() ? h("label", { class: "g-wk-fog" },
+      h("span", { class: "g-an-grow" }, "Show the whole map", h("span", { class: "g-an-muted" }, " \u00b7 lifts the fog")),
+      h("input", { id: "wk-fog", type: "checkbox", checked: o.fog.on() ? true : null, onchange: (e) => o.fog.set(e.target.checked) })) : null;
+    body.replaceChildren(...[
       h("div", { class: "g-an-row" },
         btn("wk-undo", "Undo", () => act("undo"), !st.can_undo),
         btn("wk-redo", st.redo ? `Redo (${st.redo})` : "Redo", () => act("redo"), !st.redo),
@@ -79,14 +83,21 @@ export function createWeekly(o) {
         })),
       h("p", { class: "g-an-note" }, "Undo here reaches back across turns, even past the bots' moves. Going back further than the normal undo allows marks the attempt as rewound: it keeps its score but is not compared with the official leaderboard.",
         st.rewinds ? h("strong", { id: "wk-rewinds" }, ` Rewinds so far: ${st.rewinds}.`) : null),
+      fog,
       h("p", { class: "g-an-sub" }, `Save points (${st.saves.length} of ${st.max_saves})`),
       h("form", { class: "g-an-row", onsubmit: (e) => { e.preventDefault(); act("saves", { name: nameInput.value }).then((r) => { if (r) nameInput.value = ""; }); } },
         nameInput, h("button", { id: "wk-save", class: "g-an-btn", type: "submit", disabled: busy || st.saves.length >= st.max_saves ? "" : null }, "Save")),
-      st.saves.length ? h("ul", { class: "g-wk-saves" }, saves) : h("p", { class: "g-an-muted" }, "No save points yet."));
+      st.saves.length ? h("ul", { class: "g-wk-saves" }, saves) : h("p", { class: "g-an-muted" }, "No save points yet."),
+    ].filter(Boolean));
+  }
+  // the switch follows the fog when it is lifted elsewhere (the settings screen)
+  function syncFog() {
+    const box = body.querySelector("#wk-fog");
+    if (box) box.checked = o.fog.on();
   }
 
   load();
-  const self = { sync: load, open, state: () => st };
+  const self = { sync: load, syncFog, open, state: () => st };
   root.__game = root.__game || {};
   root.__game.weekly = self;
   return self;
