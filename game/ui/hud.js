@@ -526,7 +526,7 @@ export function createHud({ wrap, kit, layersMod, selbarMod, portrait = () => fa
     const screen = layers && layers.list.some((L) => L.kind === "screen");
     if (state.visible) {
       gradients();
-      resourceBar(t);
+      if (state.top !== false) resourceBar(t); // false: the page's panel shows the turn and the player to move itself
       if (selected() && !screen) { if (selbar.draw(t)) live = true; } else if (selbar) selbar.stats.key = null;
       if (state.bottom && !screen && (!selected() || compact())) buttonBar();
       if (!screen && !selected()) drawDeck(); else stats.deck = null;

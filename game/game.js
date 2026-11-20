@@ -165,10 +165,12 @@ function syncSheets() {
   const sheet = !wide() && S.ctx && !S.ctx.closed ? S.ctx.height : 0;
   if (hud) {
     // retail swaps the button bar for the selection panel: the bar goes while a selection sheet is up
-    hud.update({ bottom: !(S.ctx && !S.ctx.closed) });
+    hud.update({ bottom: !(S.ctx && !S.ctx.closed) && panelChrome().bottom !== false });
     const hi = hud.insets;
     if (board) board.setInsets({ top: hi.top, bottom: Math.max(sheet, hi.bottom) });
   } else if (board) board.setInsets({ bottom: sheet });
+  const own = PN && PN.insets ? PN.insets() : null; // the page's panel covers part of the board
+  if (own && board) board.setInsets(own);
 }
 
 // `keep`: the same selection drawn again (after a command, or a refresh): the sheet stays as tall as the player left it
@@ -286,7 +288,7 @@ function syncBoard() {
   const acting = mine ? new Set(actingUnits(S.g, p.units, S.myId).map((u) => u.id)) : null;
   const units = acting ? p.units.map((u) => (u.owner === S.myId ? { ...u, dim: !acting.has(u.id) } : u)) : p.units;
   const lifted = watching() || (S.fogOff && V().full_position);
-  board.setPosition({ ...p, units }, { fogFor: lifted ? null : S.myId });
+  board.setPosition({ ...p, units }, { fogFor: S.viewAs ?? (lifted ? null : S.myId) });
   syncSelection();
 }
 
@@ -552,7 +554,7 @@ async function run(cmd) {
 // the board as the animation director draws it: a working copy of the position, shown as the events play
 function drawPosition(p) {
   const lifted = watching() || (S.fogOff && V().full_position);
-  board.setPosition(p, { fogFor: lifted ? null : S.myId });
+  board.setPosition(p, { fogFor: S.viewAs ?? (lifted ? null : S.myId) }); // S.viewAs: a replay seen as one player sees it
 }
 const reduced = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const afterPosition = (reply) => (S.fogOff && reply.view.full_position) || reply.view.position;
@@ -826,18 +828,23 @@ function hudButtons(left) {
       { id: "speed", text: `${S.speed}×`, label: "Speed", hidden: !w || over },
       ...(PN ? PN.tools() : []),
     ],
+    ...panelChrome(),
   });
 }
 
 // ---------- a panel of the page's own (the `panel` URL, optional): its module exports createPanel(o), which returns
 // null or {start(), sync(), marks() (board overlays), tools() (round HUD buttons), action(id) (a tap on one),
-// onAt(n, drawn) and deckExtra() (a replay)}. o: {api, toast, h, root, meta, gameId, redraw() (the board marks again),
-// onLayout() (the HUD buttons again)}, with `live` in a game being played and `R` (the replay) in a replay ----------
+// onAt(n, drawn) and deckExtra() (a replay), chrome() (optional: HUD state to lay over the game's, such as
+// {top: false} or {bottom: false} while the panel shows those itself), insets() (optional: the board's insets while
+// the panel covers part of it, else null)}. o: {api, toast, h, root, meta, gameId, M, S,
+// board, ico (icons.js), hud (whether the canvas HUD is on), redraw() (the board marks again), onLayout() (the HUD
+// buttons again)}, with `live` in a game being played and `R` (the replay) in a replay ----------
 let PN = null;
+const panelChrome = () => (PN && PN.chrome ? PN.chrome() : {});
 async function pagePanel(extra) {
   if (!urls.panel) return;
   const { createPanel } = await import(urls.panel);
-  PN = createPanel({ api, toast, h, root, meta, gameId, redraw: () => syncSelection(), onLayout: () => updateButtons(), ...extra });
+  PN = createPanel({ api, toast, h, root, meta, gameId, M, S, board, ico: A.ico, hud: !!hud, redraw: () => syncSelection(), onLayout: () => { updateButtons(); syncSheets(); }, ...extra });
   if (PN) PN.start();
 }
 const livePanel = () => pagePanel({
@@ -852,6 +859,7 @@ const livePanel = () => pagePanel({
       tribe: ((position().players || []).find((p) => p.id === s.player_id) || {}).tribe ?? s.tribe,
     })),
     canPlay: () => myTurn() && !S.busy,
+    myTurn: () => myTurn(),
     play: (text) => {
       const c = ((V().moves && V().moves.commands) || []).find((x) => x.text === text);
       if (c) act(c); else say("That move is not possible now.");
@@ -1266,6 +1274,7 @@ function replayButtons() {
         { id: "stats", icon: ["icon/stats", "head/head"], iconScale: 1, label: "Game Stats" },
       ],
       tools: PN ? PN.tools() : [],
+      ...panelChrome(),
     });
   }
 }

@@ -85,7 +85,8 @@ export function gameSource(api, base) {
 
 /** The replay controller. `o` is what it needs of the match screen (game.js); `o.source` is botSource or gameSource.
  * Optional hooks: `o.onAt(n, drawn)` on every move to another moment (drawn: the board shows it now; else it is still
- * loading), `o.deckExtra()` -> {marks} for the deck. */
+ * loading), `o.deckExtra()` -> {marks} for the deck, or {hidden: true} while the page's panel shows the timeline and the
+ * buttons itself. */
 export function createReplay(o) {
   const { source, A, S, M, D, h, board, anim, hud, applyView, drawPosition, play, banner, say, sayError } = o;
   const BATCH = source.batch;
@@ -219,6 +220,21 @@ export function createReplay(o) {
     return job;
   }
 
+  // A position that is not one of the game's (a line being looked at) drawn in place of moment `cur`, until the next
+  // seek. With `from` and `entry` the command that leads to it is animated from `from` first. False when the replay
+  // moved on meanwhile.
+  async function preview(pos, from = null, entry = null) {
+    setPlaying(false);
+    const t = ++token;
+    if (from && entry && !QUIET.has(entry.kind)) {
+      board.setOverlays([]);
+      await anim.run({ events: [entry], before: from, after: pos, show: drawPosition, mine: false, me: 0, camera: true, followMoves: true, speed: () => speed });
+      if (t !== token) return false;
+    }
+    applyView(viewAt(cur, pos));
+    return true;
+  }
+
   function setPlaying(on) {
     playing = !!on && cur < total;
     if (!playing) { token++; anim.skip(); }
@@ -297,7 +313,7 @@ export function createReplay(o) {
       const extra = o.deckExtra ? o.deckExtra(shown) : {};
       hud.update({
         warn,
-        deck: {
+        deck: extra.hidden ? null : {
           caption: drag != null ? `Command ${shown} of ${total}` : caption(), right: `${shown}/${total}`, line: lastLine(), final: final(),
           frac: total ? shown / total : 0, segments: segments(), warnFrom: div() ? div().n / total : null, buttons: glyphs(),
           marks: extra.marks || null,
@@ -372,7 +388,7 @@ export function createReplay(o) {
   }
 
   return {
-    start, action, seek, render, stats, setPlaying, cached: (n) => cache.get(n) || null,
+    start, action, seek, render, stats, setPlaying, preview, positionAt, caption, lastLine, cached: (n) => cache.get(n) || null,
     get at() { return cur; }, get total() { return total; }, get playing() { return playing; }, get speed() { return speed; },
     get data() { return data; }, get diverged() { return diverged(); },
     play: (on = true) => setPlaying(on),
