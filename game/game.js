@@ -323,11 +323,14 @@ function syncSelection() {
   }
   S.buildable = [];
   if (settings.buildGlow && myTurn() && (!S.sel || S.sel.kind === "tile")) {
-    // retail puts a blue glow round what the player has the tech to build or harvest (the animal, the fruit),
-    // whether or not they can afford it this turn
+    // retail outlines a resource (Resource.UpdateObject) when the player has unlocked something that needs it, a
+    // harvest or a farm or a mine, and the tile is theirs or the build may be made outside their land; whether they
+    // can afford it this turn does not matter. Such a build names the resource (`resource`). A road or a temple,
+    // built on the tile whatever is on it, outlines nothing.
     const cells = S.buildable, seen = new Set();
-    for (const [k, cs] of S.g.byTile) if (cs.some((c) => c.kind === "Build")) { seen.add(k); cells.push(buildCell(k, 1)); }
-    for (const [k, cs] of S.g.lockedByTile) if (!seen.has(k) && cs.some((c) => c.kind === "Build")) cells.push(buildCell(k, 1));
+    const uses = (cs) => cs.some((c) => c.kind === "Build" && c.resource);
+    for (const [k, cs] of S.g.byTile) if (uses(cs)) { seen.add(k); cells.push(buildCell(k, 1)); }
+    for (const [k, cs] of S.g.lockedByTile) if (!seen.has(k) && uses(cs)) cells.push(buildCell(k, 1));
     if (cells.length) list.unshift({ kind: "glow", colour: "#66ffff", cells, name: "buildable" }); // ColorConstants.glowColor
   }
   if (myTurn() && !S.sel) {

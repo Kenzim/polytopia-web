@@ -307,7 +307,7 @@ export function menuPanel(A, sheet) {
     audioToggle("Sound effects", "effects"), audioToggle("Music", "music", "The tribe's song"),
     watching ? null : toggle("Confirm end turn", "confirmEnd"), watching ? null : toggle("Ask before training or building", "infoOnBuild"),
     watching ? null : toggle("Follow opponents' moves", "follow"), watching ? null : toggle("Fast replays", "fast"),
-    watching ? null : toggle("Highlight what you can build", "buildGlow", "A blue glow on tiles you have the tech for"),
+    watching ? null : toggle("Highlight resources you can use", "buildGlow", "A blue glow on the resources you have the tech for"),
     A.S.game.status === "active" && !watching ? item("Resign", () => A.resign(), { attrs: { class: "list-item g-row g-danger", "data-act": "resign" } }) : null,
     h("li", {}, h("a", { class: "list-item g-row", href: "/games" }, h("span", { class: "title" }, "Back to games"))));
   return { title: "Menu", content: list };
