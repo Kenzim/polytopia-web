@@ -224,6 +224,7 @@ export function createHud({ wrap, kit, layersMod, selbarMod, portrait = () => fa
   function roundButton(b, cx, cy, d) {
     const isPressed = pressed && pressed.el.id === b.id;
     const s = isPressed ? 0.92 : 1;
+    d = Math.max(0, d); // a screen with no room leaves the button no size
     const el = hits.add({ id: b.id, label: b.label, x: cx - d / 2, y: cy - d / 2, w: d, h: d, round: true, slop: u(6), enabled: !b.disabled, active: !!b.active });
     ctx.save();
     ctx.translate(cx, cy);
@@ -233,7 +234,7 @@ export function createHud({ wrap, kit, layersMod, selbarMod, portrait = () => fa
     ctx.beginPath(); ctx.arc(0, 0, d / 2, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = COLOURS.outline;
     ctx.lineWidth = Math.max(1.5, d * 0.045);
-    ctx.beginPath(); ctx.arc(0, 0, d / 2 + u(1) - ctx.lineWidth / 2, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, 0, Math.max(0, d / 2 + u(1) - ctx.lineWidth / 2), 0, Math.PI * 2); ctx.stroke();
     if (b.glyph) {
       glyph(b.glyph, d * 0.36);
     } else if (b.icon && !b.text) {
